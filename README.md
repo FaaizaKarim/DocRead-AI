@@ -60,3 +60,8 @@ System Design Logic
                   ▼                             ▼         ▼
              Context OK?                  Context Missing ➔ Catch Guardrail
           (Deliver Answer)               (Trigger Ticket ➔ Outbound Webhook JSON)
+
+---
+
+## 📄 License
+Distributed under the ISC License. Engineered and designed with precision by **Faaiza Saand**.
