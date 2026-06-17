@@ -1,0 +1,8 @@
+venv/
+.env
+data/faiss_index/
+data/chat_logs.json
+data/tickets.json
+__pycache__/
+*.pyc
+.DS_Store

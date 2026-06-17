@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DocRead AI</title>
+  <style>
+    :root {
+      --primary: #0ea5e9;
+      --primary-dark: #0284c7;
+      --primary-glow: rgba(14,165,233,0.15);
+      --bg: #0a0f1e;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --border: #1e2d45;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body { font-family:'Segoe UI',sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; }
+
+    /* ── Header ── */
+    .header { display:flex; align-items:center; gap:12px; padding:14px 24px; background:var(--surface); border-bottom:1px solid var(--border); }
+    .avatar { width:42px; height:42px; border-radius:10px; background:#fff; overflow:hidden; padding:2px; flex-shrink:0; }
+    .avatar img { width:100%; height:100%; object-fit:contain; border-radius:8px; }
+    .header-info h2 { font-size:15px; font-weight:600; color:#fff; }
+    .header-info p { font-size:11px; color:var(--green); display:flex; align-items:center; gap:4px; }
+    .header-info p::before { content:''; width:6px; height:6px; background:var(--green); border-radius:50%; display:inline-block; }
+    .header-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .badge { font-size:11px; color:var(--primary); background:var(--primary-glow); border:1px solid var(--primary); padding:3px 10px; border-radius:20px; }
+    .header-powered { font-size:11px; color:var(--text-muted); }
+
+    /* ── Tabs ── */
+    .tabs { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; }
+    .tab { padding:10px 18px; font-size:13px; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s; }
+    .tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+    .tab:hover { color:var(--text); }
+
+    /* ── Tab panels ── */
+    .panel { display:none; flex:1; overflow:hidden; flex-direction:column; }
+    .panel.active { display:flex; }
+
+    /* ── Chat ── */
+    .chat-area { flex:1; overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:18px; scroll-behavior:smooth; }
+    .chat-area::-webkit-scrollbar { width:4px; }
+    .chat-area::-webkit-scrollbar-thumb { background:#1e2d45; border-radius:4px; }
+
+    .welcome { text-align:center; padding:40px 20px; }
+    .welcome .icon { margin-bottom:16px; }
+    .welcome h3 { font-size:20px; color:#94a3b8; margin-bottom:8px; }
+    .welcome p { font-size:14px; color:var(--text-muted); max-width:340px; margin:0 auto 6px; line-height:1.6; }
+    .welcome .kb-tag { font-size:11px; color:var(--primary); margin-bottom:24px; display:block; }
+    .suggestions { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+    .suggestion-btn { background:var(--surface2); border:1px solid var(--border); color:#94a3b8; padding:8px 14px; border-radius:20px; font-size:13px; cursor:pointer; transition:all 0.2s; }
+    .suggestion-btn:hover { border-color:var(--primary); color:#fff; }
+
+    .message { display:flex; gap:10px; max-width:82%; animation:fadeIn 0.2s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .message.user { align-self:flex-end; flex-direction:row-reverse; }
+    .message.bot { align-self:flex-start; }
+    .msg-avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; margin-top:2px; }
+    .message.bot .msg-avatar { background:linear-gradient(135deg,var(--primary),#0284c7); }
+    .message.user .msg-avatar { background:var(--surface2); color:#94a3b8; }
+    .msg-content { display:flex; flex-direction:column; gap:4px; }
+    .msg-bubble { padding:11px 15px; border-radius:16px; font-size:14px; line-height:1.6; }
+    .message.bot .msg-bubble { background:var(--surface2); border:1px solid var(--border); border-top-left-radius:4px; color:var(--text); }
+    .message.user .msg-bubble { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); border-top-right-radius:4px; color:#fff; }
+    .msg-source { font-size:11px; color:var(--primary); padding:3px 8px; background:rgba(14,165,233,0.08); border:1px solid rgba(14,165,233,0.2); border-radius:6px; display:flex; align-items:center; gap:4px; }
+    .msg-meta { font-size:11px; color:#334155; padding:1px 4px; }
+    .msg-time { font-size:11px; color:#334155; padding:0 4px; }
+    .message.user .msg-time { text-align:right; }
+
+    .typing { display:flex; align-items:center; gap:10px; align-self:flex-start; }
+    .typing .msg-avatar { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#0284c7); display:flex; align-items:center; justify-content:center; font-size:13px; }
+    .typing-dots { background:var(--surface2); border:1px solid var(--border); border-radius:16px; border-top-left-radius:4px; padding:13px 16px; display:flex; gap:5px; align-items:center; }
+    .typing-dots span { width:6px; height:6px; background:#334155; border-radius:50%; animation:bounce 1.2s infinite; }
+    .typing-dots span:nth-child(2){animation-delay:0.2s} .typing-dots span:nth-child(3){animation-delay:0.4s}
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px);background:var(--primary)} }
+
+    .escalate-box { display:flex; align-items:center; gap:8px; margin-top:4px; padding:8px 12px; background:rgba(14,165,233,0.06); border:1px solid rgba(14,165,233,0.25); border-radius:10px; font-size:12px; color:#94a3b8; }
+    .escalate-box button { background:var(--primary); color:#fff; border:none; padding:4px 12px; border-radius:6px; font-size:12px; cursor:pointer; }
+    .escalate-box button:hover { background:var(--primary-dark); }
+
+    .ticket-form { background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:10px; max-width:400px; animation:fadeIn 0.2s ease; }
+    .ticket-form h4 { color:#fff; font-size:14px; }
+    .ticket-form input,.ticket-form textarea { background:#0f1829; border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text); font-size:13px; outline:none; font-family:inherit; transition:border-color 0.2s; }
+    .ticket-form input:focus,.ticket-form textarea:focus { border-color:var(--primary); }
+    .ticket-form textarea { height:75px; resize:none; }
+    .ticket-btns { display:flex; gap:8px; }
+    .ticket-btns button { padding:7px 16px; border-radius:8px; border:none; cursor:pointer; font-size:13px; }
+    .ticket-btns button:first-child { background:var(--primary); color:#fff; }
+    .ticket-btns button:last-child { background:var(--surface); color:#94a3b8; }
+
+    /* ── Input ── */
+    .input-area { padding:14px 24px 18px; background:var(--surface); border-top:1px solid var(--border); }
+    .input-row { display:flex; gap:10px; align-items:flex-end; background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:9px 9px 9px 15px; transition:border-color 0.2s; }
+    .input-row:focus-within { border-color:var(--primary); }
+    textarea { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:14px; font-family:inherit; resize:none; max-height:120px; line-height:1.5; padding-top:2px; }
+    textarea::placeholder { color:#334155; }
+    .send-btn { width:36px; height:36px; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); border:none; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:opacity 0.2s,transform 0.1s; }
+    .send-btn:hover { opacity:0.9; transform:scale(1.05); }
+    .send-btn:disabled { opacity:0.35; cursor:not-allowed; transform:none; }
+    .send-btn svg { width:15px; height:15px; fill:#fff; }
+    .input-footer { display:flex; justify-content:space-between; margin-top:7px; }
+    .input-hint { font-size:11px; color:#1e3a5f; }
+    .powered-tag { font-size:11px; color:#1e3a5f; }
+
+    /* ── Admin Panel ── */
+    .admin-panel { flex:1; overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:20px; }
+    .admin-section { background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:20px; }
+    .admin-section h3 { font-size:14px; color:#fff; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .admin-section h3 span { font-size:11px; color:var(--primary); background:var(--primary-glow); border:1px solid var(--primary); padding:2px 8px; border-radius:10px; }
+
+    .upload-zone { border:2px dashed var(--border); border-radius:10px; padding:30px; text-align:center; cursor:pointer; transition:all 0.2s; position:relative; }
+    .upload-zone:hover,.upload-zone.dragover { border-color:var(--primary); background:var(--primary-glow); }
+    .upload-zone input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+    .upload-zone .upload-icon { font-size:32px; margin-bottom:10px; }
+    .upload-zone p { font-size:13px; color:#64748b; }
+    .upload-zone p strong { color:var(--primary); }
+
+    .upload-progress { display:none; margin-top:12px; }
+    .progress-bar { height:4px; background:var(--border); border-radius:4px; overflow:hidden; }
+    .progress-fill { height:100%; background:var(--primary); border-radius:4px; animation:progress 2s ease forwards; }
+    @keyframes progress { from{width:0} to{width:100%} }
+    .upload-status { font-size:12px; color:var(--primary); margin-top:6px; }
+
+    .doc-list { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+    .doc-item { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+    .doc-icon { font-size:18px; }
+    .doc-name { flex:1; font-size:13px; color:var(--text); }
+    .doc-badge { font-size:11px; color:var(--green); background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.2); padding:2px 8px; border-radius:10px; }
+    .doc-delete { background:transparent; border:none; color:#475569; cursor:pointer; font-size:14px; padding:4px; border-radius:4px; transition:color 0.2s; }
+    .doc-delete:hover { color:var(--red); }
+
+    .webhook-row { display:flex; gap:10px; }
+    .webhook-row input { flex:1; background:#0f1829; border:1px solid var(--border); border-radius:8px; padding:9px 12px; color:var(--text); font-size:13px; outline:none; font-family:inherit; }
+    .webhook-row input:focus { border-color:var(--primary); }
+    .webhook-row button { background:var(--primary); color:#fff; border:none; padding:9px 18px; border-radius:8px; font-size:13px; cursor:pointer; white-space:nowrap; }
+    .webhook-hint { font-size:11px; color:var(--text-muted); margin-top:8px; }
+
+    .stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+    .stat-card .num { font-size:24px; font-weight:700; color:var(--primary); }
+    .stat-card .label { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+    .notify { position:fixed; bottom:20px; right:20px; background:var(--surface2); border:1px solid var(--primary); color:var(--text); padding:12px 18px; border-radius:10px; font-size:13px; z-index:999; animation:fadeIn 0.3s ease; display:none; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="avatar">
+      <img src="/static/logo.PNG" alt="DocRead AI" onerror="this.style.display='none';this.parentElement.textContent='🧠'"/>
+    </div>
+    <div class="header-info">
+      <h2>DocRead AI — Customer Support Agent</h2>
+      <p>Online — AI Agent Active</p>
+    </div>
+    <div class="header-right">
+      <span class="badge">RAG-Powered Knowledge Base</span>
+      <span class="header-powered">LLaMA 3.3 70B</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('chat',this)">💬 Chat</div>
+    <div class="tab" onclick="switchTab('admin',this)">⚙️ Admin Panel</div>
+  </div>
+
+  <!-- Chat Panel -->
+  <div class="panel active" id="panel-chat" style="flex-direction:column;">
+    <div class="chat-area" id="chatArea">
+      <div class="welcome" id="welcome">
+        <div class="icon">
+          <img src="/static/logo.PNG" alt="DocRead AI" style="width:72px;height:72px;object-fit:contain;border-radius:14px;background:#fff;padding:6px;" onerror="this.outerHTML='<div style=font-size:48px>🧠</div>'"/>
+        </div>
+        <h3>Welcome to DocRead AI</h3>
+        <p>I've read your documents so you don't have to.</p>
+        <span class="kb-tag">Knowledge Base: Business Docs + FAISS Vector DB</span>
+        <div class="suggestions">
+          <button class="suggestion-btn" onclick="suggest(this)">What is the return policy?</button>
+          <button class="suggestion-btn" onclick="suggest(this)">What payment methods do you accept?</button>
+          <button class="suggestion-btn" onclick="suggest(this)">What are your support hours?</button>
+          <button class="suggestion-btn" onclick="suggest(this)">Do you offer free shipping?</button>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="input" rows="1" placeholder="Type your message..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+          <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="input-footer">
+        <span class="input-hint">Enter to send · Shift+Enter for new line</span>
+        <span class="powered-tag">DocRead AI v3.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="panel" id="panel-admin">
+    <div class="admin-panel">
+
+      <!-- Stats -->
+      <div class="admin-section">
+        <h3>📊 Overview</h3>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="num" id="statDocs">—</div><div class="label">Documents</div></div>
+          <div class="stat-card"><div class="num" id="statLogs">—</div><div class="label">Conversations</div></div>
+          <div class="stat-card"><div class="num" id="statTickets">—</div><div class="label">Open Tickets</div></div>
+        </div>
+      </div>
+
+      <!-- Document Upload -->
+      <div class="admin-section">
+        <h3>📁 Knowledge Base <span>Live Re-ingestion</span></h3>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept=".txt,.pdf" onchange="handleUpload(this)"/>
+          <div class="upload-icon">☁️</div>
+          <p>Drag & drop or <strong>click to upload</strong></p>
+          <p style="font-size:11px;margin-top:4px;">Supports .txt and .pdf — Knowledge base updates live</p>
+        </div>
+        <div class="upload-progress" id="uploadProgress">
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="upload-status" id="uploadStatus">Uploading and re-ingesting...</div>
+        </div>
+        <div class="doc-list" id="docList"></div>
+      </div>
+
+      <!-- Webhook Config -->
+      <div class="admin-section">
+        <h3>🔗 Webhook Integration <span>Zendesk / Jira / Slack</span></h3>
+        <div class="webhook-row">
+          <input type="text" id="webhookUrl" placeholder="https://your-webhook-url.com/endpoint"/>
+          <button onclick="saveWebhook()">Save Webhook</button>
+        </div>
+        <p class="webhook-hint">When a ticket is created, a structured payload with chat context is sent to this URL automatically.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div class="notify" id="notify"></div>
+
+  <script>
+    const chatArea = document.getElementById('chatArea');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    let chatHistory = [];
+
+    // ── Tab switching ──
+    function switchTab(name, el) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('panel-' + name).classList.add('active');
+      if (name === 'admin') loadAdminData();
+    }
+
+    // ── Admin ──
+    async function loadAdminData() {
+      try {
+        const [docs, logs, tickets] = await Promise.all([
+          fetch('/documents').then(r => r.json()),
+          fetch('/logs').then(r => r.json()),
+          fetch('/tickets').then(r => r.json())
+        ]);
+        document.getElementById('statDocs').textContent = docs.count || 0;
+        document.getElementById('statLogs').textContent = logs.length || 0;
+        document.getElementById('statTickets').textContent = tickets.filter(t => t.status === 'open').length || 0;
+        renderDocList(docs.documents || []);
+      } catch(e) {}
+    }
+
+    function renderDocList(docs) {
+      const list = document.getElementById('docList');
+      if (!docs.length) { list.innerHTML = '<p style="font-size:13px;color:#334155;padding:8px 0;">No documents yet. Upload one above.</p>'; return; }
+      list.innerHTML = docs.map(d => `
+        <div class="doc-item">
+          <span class="doc-icon">${d.endsWith('.pdf') ? '📄' : '📝'}</span>
+          <span class="doc-name">${d}</span>
+          <span class="doc-badge">Active</span>
+          <button class="doc-delete" onclick="deleteDoc('${d}')" title="Delete">🗑</button>
+        </div>
+      `).join('');
+    }
+
+    async function handleUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const progress = document.getElementById('uploadProgress');
+      const status = document.getElementById('uploadStatus');
+      progress.style.display = 'block';
+      status.textContent = 'Uploading and re-ingesting knowledge base...';
+
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        status.textContent = data.message;
+        setTimeout(() => { progress.style.display = 'none'; loadAdminData(); }, 3000);
+        showNotify('Document uploaded! Knowledge base updating...');
+      } catch(e) {
+        status.textContent = 'Upload failed. Please try again.';
+      }
+      input.value = '';
+    }
+
+    async function deleteDoc(filename) {
+      if (!confirm(`Delete ${filename}?`)) return;
+      await fetch('/documents/' + filename, { method: 'DELETE' });
+      showNotify(`${filename} deleted. Knowledge base updating...`);
+      setTimeout(loadAdminData, 1000);
+    }
+
+    function saveWebhook() {
+      const url = document.getElementById('webhookUrl').value.trim();
+      if (!url) { showNotify('Please enter a webhook URL'); return; }
+      showNotify('Webhook URL saved! Tickets will now send structured payloads to this endpoint.');
+    }
+
+    function showNotify(msg) {
+      const n = document.getElementById('notify');
+      n.textContent = msg;
+      n.style.display = 'block';
+      setTimeout(() => n.style.display = 'none', 3500);
+    }
+
+    // ── Drag & drop ──
+    const zone = document.getElementById('uploadZone');
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) { const dt = new DataTransfer(); dt.items.add(file); document.getElementById('fileInput').files = dt.files; handleUpload(document.getElementById('fileInput')); }
+    });
+
+    // ── Chat ──
+    function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+    function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+    function suggest(btn) { input.value=btn.textContent; autoResize(input); sendMessage(); }
+    function getTime() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+
+    function addMessage(text, type, source, needsEscalation) {
+      document.getElementById('welcome')?.remove();
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+      const avatar = type==='bot' ? '🧠' : '👤';
+      const sourceHtml = source ? `<div class="msg-source">📄 Source: <strong>${source}</strong> · Knowledge Base + FAISS</div>` : '';
+      const metaHtml = type==='bot' ? `<div class="msg-meta">RAG · LLaMA 3.3 70B · FAISS Index</div>` : '';
+      const escalateHtml = needsEscalation ? `
+        <div class="escalate-box">
+          <span>🎫 Need more help?</span>
+          <button onclick="showTicketForm()">Create Support Ticket</button>
+        </div>` : '';
+      div.innerHTML = `
+        <div class="msg-avatar">${avatar}</div>
+        <div class="msg-content">
+          <div class="msg-bubble">${text}</div>
+          ${sourceHtml}${metaHtml}${escalateHtml}
+          <div class="msg-time">${getTime()}</div>
+        </div>`;
+      chatArea.appendChild(div);
+      chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    function showTyping() {
+      const div = document.createElement('div');
+      div.className='typing'; div.id='typing';
+      div.innerHTML=`<div class="msg-avatar">🧠</div><div class="typing-dots"><span></span><span></span><span></span></div>`;
+      chatArea.appendChild(div); chatArea.scrollTop=chatArea.scrollHeight;
+    }
+    function removeTyping() { document.getElementById('typing')?.remove(); }
+
+    function showTicketForm() {
+      if(document.getElementById('ticketForm')) return;
+      const div=document.createElement('div'); div.id='ticketForm'; div.className='ticket-form';
+      div.innerHTML=`
+        <h4>🎫 Create Support Ticket</h4>
+        <input id="tName" placeholder="Your name"/>
+        <input id="tEmail" placeholder="Your email"/>
+        <textarea id="tIssue" placeholder="Describe your issue (min 10 chars)"></textarea>
+        <div class="ticket-btns">
+          <button onclick="submitTicket()">Submit Ticket</button>
+          <button onclick="this.closest('.ticket-form').remove()">Cancel</button>
+        </div>`;
+      chatArea.appendChild(div); chatArea.scrollTop=chatArea.scrollHeight;
+    }
+
+    async function submitTicket() {
+      const name=document.getElementById('tName').value.trim();
+      const email=document.getElementById('tEmail').value.trim();
+      const issue=document.getElementById('tIssue').value.trim();
+      if(!name||!email||!issue){alert('Please fill all fields');return;}
+      if(issue.length<10){alert('Please describe your issue in at least 10 characters');return;}
+      const res=await fetch('/ticket',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,issue,chat_history:chatHistory})});
+      const data=await res.json();
+      document.getElementById('ticketForm').remove();
+      addMessage(`Ticket created! ID: <strong>${data.ticket_id}</strong>. Our team will contact you shortly.`,'bot',null,false);
+    }
+
+    async function sendMessage() {
+      const text=input.value.trim(); if(!text) return;
+      input.value=''; input.style.height='auto'; sendBtn.disabled=true;
+      chatHistory.push({role:'user',content:text});
+      addMessage(text,'user');
+      showTyping();
+      try {
+        const res=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:text,chat_history:chatHistory})});
+        const data=await res.json(); removeTyping();
+        const answer=data.answer||data.detail||'Sorry, I could not process that.';
+        chatHistory.push({role:'assistant',content:answer});
+        const source=data.sources&&data.sources.length>0?data.sources[0]:null;
+        addMessage(answer,'bot',source,data.needs_escalation||false);
+      } catch(e) {
+        removeTyping();
+        addMessage('Sorry, I could not connect to the server. Please try again.','bot',null,false);
+      }
+      sendBtn.disabled=false; input.focus();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+DocRead AI v3.0 — Project Report
+Overview
+DocRead AI v3.0 is a RAG-based customer support agent that answers questions using content from a local knowledge base. It supports:
+
+Live document ingestion (upload documents and automatically re-ingest)
+RAG retrieval using a persisted FAISS index
+Customer support ticket creation with optional webhook integration
+Basic admin-style endpoints to manage documents and inspect logs/tickets
+Project version: 3.0.0
+
+High-Level Architecture
+The system is split into a few key modules:
+
+Document ingestion (app/ingest.py)
+
+Loads documents from data/docs/
+Splits documents into text chunks
+Creates embeddings
+Builds and persists a FAISS vector index to data/faiss_index/
+Question answering / RAG (app/agent.py)
+
+Loads the FAISS index (locally) as a vector store
+Retrieves the top-k most relevant chunks (k=4)
+Builds a system prompt that includes the retrieved context
+Calls the Groq LLM to generate an answer constrained to that context
+Returns:
+answer
+sources (derived from document metadata)
+needs_escalation (based on phrase detection in the answer)
+context_used (truncated context string)
+FastAPI service (app/main.py)
+
+Exposes API endpoints for:
+chat/asking questions
+uploading documents
+listing/deleting documents
+creating tickets
+viewing logs and tickets
+Data & Storage
+Documents: data/docs/
+Supported extensions: .txt, .pdf
+FAISS index: data/faiss_index/
+Chat logs: data/chat_logs.json
+Tickets: data/tickets.json
+Document Ingestion Details
+Implemented in app/ingest.py.
+
+Supported loaders
+PyPDFLoader for .pdf
+TextLoader for .txt
+Chunking strategy
+Uses RecursiveCharacterTextSplitter:
+
+chunk_size = 500
+chunk_overlap = 50
+Embeddings
+Embeddings model:
+
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+Index creation
+FAISS.from_documents(chunks, embeddings)
+Saved via vectorstore.save_local(FAISS_INDEX_PATH)
+FAISS index path comes from config:
+
+FAISS_INDEX_PATH = "data/faiss_index"
+Retrieval & RAG Logic
+Implemented in app/agent.py.
+
+Vector store / embeddings
+The FAISS index is loaded with:
+FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+Retrieval configuration
+Retrieves top chunks via:
+retriever = vs.as_retriever(search_kwargs={"k": 4})
+docs = retriever.invoke(question)
+Context construction
+Retrieved pages are concatenated as:
+context = "\n\n".join([doc.page_content for doc in docs])
+Sources
+Sources are extracted from doc.metadata.get("source", "knowledge base")
+Then normalized to a simplified filename-like form.
+Prompting & Answer Constraints
+A fixed system prompt (in app/agent.py) enforces strict behavior.
+
+System prompt rules (key points)
+The agent must answer ONLY based on the provided context.
+If the answer is not in context, it must output exactly:
+"I don't have enough information to answer that. Please contact our support team directly."
+
+Never invent information.
+Keep responses concise and helpful.
+Escalation Detection
+needs_escalation is computed after the LLM responds by checking whether the answer contains any of these phrases (lowercased):
+
+"don't have enough information"
+"cannot find"
+"not sure"
+"contact our support"
+This determines whether the UI/workflow should escalate the conversation.
+
+FastAPI API Surface
+Implemented in app/main.py.
+
+UI
+GET /
+Returns service status and version.
+GET /chat
+Serves app/static/index.html.
+Core ask endpoint
+POST /ask
+Request: question: str, optional chat_history: list[{role, content}]
+Response: answer, sources, needs_escalation, context_used
+Also appends the conversation to data/chat_logs.json.
+Document management
+POST /upload (multipart upload)
+
+Accepts .txt and .pdf
+Saves file into data/docs/
+Triggers background re-ingestion (reingest_documents) which calls:
+ingest()
+reload_vectorstore()
+GET /documents
+
+Lists documents in data/docs/
+DELETE /documents/{filename}
+
+Deletes the file from data/docs/
+Triggers re-ingestion in the background
+Ticket creation (webhook-capable)
+POST /ticket
+Request fields:
+name, email, issue, optional chat_history
+Stores ticket data in data/tickets.json with status open.
+If WEBHOOK_URL is set, sends a webhook payload with ticket metadata.
+Observability endpoints
+GET /logs
+Returns data/chat_logs.json
+GET /tickets
+Returns data/tickets.json
+Configuration / Environment
+Implemented in app/config.py and loaded via .env.
+
+Required
+GROQ_API_KEY (used to instantiate ChatGroq)
+Optional
+WEBHOOK_URL (if missing/empty, webhook sending is skipped)
+Model configuration
+LLM model:
+MODEL_NAME = "llama-3.3-70b-versatile"
+Generation temperature:
+temperature = 0.2
+Operational Flow Summary
+Upload .txt/.pdf via POST /upload
+Ingest pipeline builds embeddings and FAISS index
+When user calls POST /ask:
+Retrieve top relevant chunks from FAISS
+Insert them into the system prompt context
+Generate answer using Groq LLM
+Return answer + sources + escalation signal
+Log conversation to data/chat_logs.json
+Notable Implementation Notes (from code)
+The vector store is cached in memory (vectorstore global) and reloaded on re-ingest.
+Chat logs and tickets are JSON files on disk (no database).
+Escalation is inferred from output text; correctness depends on the prompt’s exact escalation phrasing.
+End of report.
