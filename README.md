@@ -29,6 +29,9 @@ RAG-based AI support agent with live document ingestion, webhook integration, an
 - GET /tickets — All tickets
 
 
+## 📂 Project Directory Structure
+
+```text
 docread-ai-v3/
 ├── app/
 │   ├── main.py               # Asynchronous web routing, operational routes, state logic
@@ -46,7 +49,8 @@ docread-ai-v3/
 └── README.md                 # Upgraded architectural specification manual
 
 
-#System Design Logic
+System Design Logic
+
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │ User Frontend   │────▶│ FastAPI Backend  │────▶│   FAISS Store   │
 │ UI Chat Panel   │     │ Core Routers API │     │ Vector Databases│
